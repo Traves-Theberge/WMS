@@ -37,7 +37,7 @@ A comprehensive, terminal-based weather dashboard, WMS provides detailed weather
 Run the application from your terminal:
 
 ```bash
-./wms
+go run ./cmd/wms
 ```
 
 ### Command-Line Flags
@@ -159,3 +159,4 @@ Please ensure your PR:
 
 ## License 
 
+This project is licensed under the terms of the `LICENSE` file.
