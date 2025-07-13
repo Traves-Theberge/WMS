@@ -1,8 +1,12 @@
-# WMS - Weather, Moon, & Solar
+# WMS - Weather, Moon, & Solar / Weather Management System.
 
 A comprehensive, terminal-based weather dashboard inspired by the aesthetics and functionality of [Stormy](https://github.com/dpr-1/stormy'). WMS provides detailed weather, moon phase, and solar information in a clean, elegant, and highly configurable TUI (Text-based User Interface).
 
-![WMS Screenshot](https://user-images.githubusercontent.com/12345/67890.png) <!-- Placeholder -->
+<p align="center">
+  <img src="assets/images/Weather.png" width="32%" />
+  <img src="assets/images/Moon.png" width="32%" />
+  <img src="assets/images/Solar.png" width="32%" />
+</p>
 
 ## Features
 
@@ -120,3 +124,38 @@ WMS draws inspiration from several fantastic open-source projects. A special tha
 - [lipgloss](https://github.com/charmbracelet/lipgloss)
 - [toml](https://github.com/BurntSushi/toml)
 - [godotenv](https://github.com/joho/godotenv) 
+
+## Issues and Contributing
+
+### Reporting Issues
+
+If you encounter any bugs or have feature requests, please open an issue on GitHub:
+
+1. Check if the issue already exists in the [Issues](https://github.com/your-username/wms/issues) section
+2. If not, create a new issue with:
+   - A clear and descriptive title
+   - Steps to reproduce the problem
+   - Expected vs actual behavior
+   - Your system information (OS, terminal, etc.)
+   - Configuration file contents (if relevant)
+
+### Pull Requests
+
+Contributions are welcome! To submit a pull request:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Test your changes thoroughly
+5. Commit your changes (`git commit -m 'Add some amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure your PR:
+- Follows the existing code style
+- Includes appropriate tests if applicable
+- Updates documentation as needed
+- Has a clear description of the changes
+
+## License 
+
