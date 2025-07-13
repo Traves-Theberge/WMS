@@ -250,9 +250,12 @@ func (m Model) updateSettingsView(msg tea.KeyMsg) (Model, tea.Cmd) {
 			}
 			return m, messages.FetchWeatherWithConfigCmd(m.config)
 		case 1: // Set Manual Location
-			m.viewMode = ViewLocationInput
-			m.isEditingLocation = true
-			m.statusMsg = "Enter new location"
+			// Only allow setting location in manual mode
+			if m.config.LocationMode == "manual" {
+				m.viewMode = ViewLocationInput
+				m.isEditingLocation = true
+				m.statusMsg = "Enter new location"
+			}
 		case 2: // Save and Exit
 			err := config.WriteConfig(m.config)
 			if err != nil {
@@ -286,13 +289,13 @@ func (m Model) updateLocationInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.statusTimer = time.Now()
 		return m, nil
 	case "enter":
-		// Save the new location
+		// Save the new location and refresh the weather
 		m.config.Location = m.locationInput
 		m.isEditingLocation = false
 		m.viewMode = ViewSettings // Return to settings after saving
 		m.statusMsg = "Location saved!"
 		m.statusTimer = time.Now()
-		return m, nil
+		return m, messages.FetchWeatherWithConfigCmd(m.config)
 	case "backspace":
 		if len(m.locationInput) > 0 {
 			m.locationInput = m.locationInput[:len(m.locationInput)-1]
@@ -562,11 +565,15 @@ func (m Model) renderSettings() string {
 
 	// --- Manual Location Setting ---
 	cursor = " "
+	locationStyle := lipgloss.NewStyle()
+	if m.config.LocationMode == "ip" {
+		locationStyle = locationStyle.Foreground(styles.TextMuted)
+	}
 	if m.settingsCursor == 1 {
 		cursor = ">"
 	}
 	locationStatus := fmt.Sprintf("Set Location:  %s", m.config.Location)
-	b.WriteString(fmt.Sprintf("%s %s\n", cursor, locationStatus))
+	b.WriteString(fmt.Sprintf("%s %s\n", cursor, locationStyle.Render(locationStatus)))
 
 	// --- Save and Exit Setting ---
 	cursor = " "
@@ -584,16 +591,12 @@ func (m Model) renderSettings() string {
 
 // renderLocationInput creates the view for the location input screen.
 func (m Model) renderLocationInput() string {
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(styles.Primary).
-		Padding(1, 2).
-		Width(m.width / 2)
-
+	// Create a simple input field for location, styled as a card
 	prompt := "Enter new location:"
 	inputField := fmt.Sprintf("%s\n\n> %s█", prompt, m.locationInput)
 
-	return inputStyle.Render(inputField)
+	// Return the content, which will be wrapped in a card by the View function
+	return inputField
 }
 
 // getMoonPhaseIcon returns the appropriate ASCII art for the moon phase.
