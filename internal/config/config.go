@@ -1,3 +1,6 @@
+// Package config handles the configuration management for the WMS application.
+// It supports loading settings from a TOML file and overriding them with
+// command-line flags. It also manages environment variables for API keys.
 package config
 
 import (
@@ -8,33 +11,35 @@ import (
 	"runtime"
 
 	"github.com/BurntSushi/toml"
+	"github.com/joho/godotenv"
 )
 
-// Config holds the application configuration
+// Config holds all the user-configurable settings for the application.
+// Tags are used to map fields to the TOML configuration file.
 type Config struct {
 	// Weather settings
-	WeatherProvider string `toml:"weather_provider"`
-	WeatherAPIKey   string `toml:"weather_api_key"`
-	Location        string `toml:"location"`
+	WeatherProvider string `toml:"weather_provider"` // The weather API provider to use (e.g., "WeatherAPI")
+	Location        string `toml:"location"`         // The default location for weather data
+	LocationMode    string `toml:"location_mode"`    // How the location is determined ("ip" or "manual")
 
 	// Display settings
-	Units        string `toml:"units"`       // "metric" or "imperial"
-	TimeFormat   string `toml:"time_format"` // "12" or "24"
-	UseColors    bool   `toml:"use_colors"`
-	Compact      bool   `toml:"compact"`
-	ShowCityName bool   `toml:"show_city_name"`
+	Units        string `toml:"units"`          // The unit system for temperature and speed ("metric" or "imperial")
+	TimeFormat   string `toml:"time_format"`    // The time format ("12" or "24")
+	UseColors    bool   `toml:"use_colors"`     // Whether to use colors in the TUI
+	Compact      bool   `toml:"compact"`        // Whether to use a compact display mode
+	ShowCityName bool   `toml:"show_city_name"` // Whether to show the city name in the display
 
 	// Update settings
-	RefreshInterval int `toml:"refresh_interval"` // minutes
+	RefreshInterval int `toml:"refresh_interval"` // The refresh interval in minutes
 
-	// Moon settings
-	MoonProvider string `toml:"moon_provider"`
-	MoonAPIKey   string `toml:"moon_api_key"`
+	// API Keys are loaded from a .env file and are not stored in the TOML config.
+	WeatherAPIKey string `toml:"-"`
 }
 
-// Flags holds command line flags
+// Flags represents the command-line flags that can be used to override the configuration.
 type Flags struct {
 	Location        string
+	LocationMode    string
 	Units           string
 	TimeFormat      string
 	Compact         bool
@@ -42,30 +47,30 @@ type Flags struct {
 	RefreshInterval int
 }
 
+// Constants for the supported weather providers.
 const (
 	ProviderWeatherAPI = "WeatherAPI"
 	ProviderOpenMeteo  = "OpenMeteo"
 	ProviderIPGeo      = "IPGeolocation"
 )
 
-// DefaultConfig returns a new Config with default values
+// DefaultConfig returns a new Config with sensible default values.
 func DefaultConfig() Config {
 	return Config{
 		WeatherProvider: ProviderWeatherAPI,
-		WeatherAPIKey:   "33253c8d785646d18fd184607251207",
-		Location:        "",
+		Location:        "New York",
+		LocationMode:    "ip",
 		Units:           "metric",
 		TimeFormat:      "24",
 		UseColors:       true,
 		Compact:         false,
 		ShowCityName:    true,
 		RefreshInterval: 5,
-		MoonProvider:    ProviderIPGeo,
-		MoonAPIKey:      "7b5a5c79f6e04d6e8b8c9d0e1f2a3b4c",
 	}
 }
 
-// GetConfigPath returns the path to the config file
+// GetConfigPath determines the appropriate path for the configuration file based
+// on the user's operating system.
 func GetConfigPath() string {
 	var configDir string
 
@@ -93,12 +98,19 @@ func GetConfigPath() string {
 	return filepath.Join(configDir, "wms.toml")
 }
 
-// ValidateConfig checks if the config is valid
+// ValidateConfig checks the configuration for valid values and sets defaults
+// if any are invalid.
 func ValidateConfig(config *Config) {
 	// Validate weather provider
 	if config.WeatherProvider != ProviderWeatherAPI && config.WeatherProvider != ProviderOpenMeteo {
 		fmt.Fprintln(os.Stderr, "Warning: Invalid weather provider in config. Using 'WeatherAPI' as default.")
 		config.WeatherProvider = ProviderWeatherAPI
+	}
+
+	// Validate location mode
+	if config.LocationMode != "ip" && config.LocationMode != "manual" {
+		fmt.Fprintln(os.Stderr, "Warning: Invalid location mode in config. Using 'ip' as default.")
+		config.LocationMode = "ip"
 	}
 
 	// Validate units
@@ -135,8 +147,20 @@ func ValidateConfig(config *Config) {
 	}
 }
 
-// ReadConfig reads/creates the config file and returns the configuration
+// LoadEnv loads environment variables from a .env file in the project root.
+// It is safe to call even if the file does not exist.
+func LoadEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		// It's okay if the .env file doesn't exist, we'll just use env vars
+	}
+}
+
+// ReadConfig reads the configuration from the TOML file. If the file does not
+// exist, it creates a default one. It also loads API keys from the environment.
 func ReadConfig() Config {
+	LoadEnv() // Load .env file first
+
 	configPath := GetConfigPath()
 	if configPath == "" {
 		return DefaultConfig()
@@ -181,58 +205,12 @@ func ReadConfig() Config {
 	}
 
 	if err := toml.Unmarshal(data, &config); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to parse config file, using defaults with available values:", err)
-
-		// Try to load partial config
-		defaultConfig := DefaultConfig()
-		var partialConfig map[string]interface{}
-
-		if err := toml.Unmarshal(data, &partialConfig); err == nil {
-			// Apply any valid values from partial config
-			if provider, ok := partialConfig["weather_provider"].(string); ok {
-				defaultConfig.WeatherProvider = provider
-			}
-			if apiKey, ok := partialConfig["weather_api_key"].(string); ok {
-				defaultConfig.WeatherAPIKey = apiKey
-			}
-			if location, ok := partialConfig["location"].(string); ok {
-				defaultConfig.Location = location
-			}
-			if units, ok := partialConfig["units"].(string); ok {
-				defaultConfig.Units = units
-			}
-			if timeFormat, ok := partialConfig["time_format"].(string); ok {
-				defaultConfig.TimeFormat = timeFormat
-			}
-			if useColors, ok := partialConfig["use_colors"].(bool); ok {
-				defaultConfig.UseColors = useColors
-			}
-			if compact, ok := partialConfig["compact"].(bool); ok {
-				defaultConfig.Compact = compact
-			}
-			if showCityName, ok := partialConfig["show_city_name"].(bool); ok {
-				defaultConfig.ShowCityName = showCityName
-			}
-			if refreshInterval, ok := partialConfig["refresh_interval"].(int); ok {
-				defaultConfig.RefreshInterval = refreshInterval
-			}
-		}
-
-		// Write corrected config back
-		file, err := os.Create(configPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to update config file:", err)
-			return defaultConfig
-		}
-		defer file.Close()
-
-		encoder := toml.NewEncoder(file)
-		if err := encoder.Encode(defaultConfig); err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to write merged config:", err)
-		}
-
-		config = defaultConfig
+		fmt.Fprintln(os.Stderr, "Failed to parse config file, using defaults.", err)
+		return DefaultConfig()
 	}
+
+	// Load API keys from environment variables
+	config.WeatherAPIKey = os.Getenv("WEATHER_API_KEY")
 
 	// Validate configuration
 	ValidateConfig(&config)
@@ -240,11 +218,12 @@ func ReadConfig() Config {
 	return config
 }
 
-// ParseFlags parses command line flags
+// ParseFlags parses the command-line flags and returns them in a Flags struct.
 func ParseFlags() Flags {
 	flags := Flags{}
 
 	flag.StringVar(&flags.Location, "location", "", "Location to get weather for")
+	flag.StringVar(&flags.LocationMode, "location-mode", "", "Location mode (ip, manual)")
 	flag.StringVar(&flags.Units, "units", "", "Units (metric, imperial)")
 	flag.StringVar(&flags.TimeFormat, "time", "", "Time format (12, 24)")
 	flag.BoolVar(&flags.Compact, "compact", false, "Compact display mode")
@@ -276,10 +255,15 @@ func ParseFlags() Flags {
 	return flags
 }
 
-// ApplyFlags applies command line flags to the config
+// ApplyFlags applies the command-line flags to the Config struct, overriding
+// any values that were set in the configuration file.
 func ApplyFlags(config *Config, flags Flags) {
 	if flags.Location != "" {
 		config.Location = flags.Location
+	}
+	if flags.LocationMode != "" {
+		config.LocationMode = flags.LocationMode
+		ValidateConfig(config)
 	}
 	if flags.Units != "" {
 		config.Units = flags.Units
@@ -296,4 +280,25 @@ func ApplyFlags(config *Config, flags Flags) {
 		config.RefreshInterval = flags.RefreshInterval
 		ValidateConfig(config)
 	}
+}
+
+// WriteConfig saves the provided Config struct to the TOML configuration file.
+func WriteConfig(config Config) error {
+	configPath := GetConfigPath()
+	if configPath == "" {
+		return fmt.Errorf("could not determine config path")
+	}
+
+	file, err := os.Create(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := toml.NewEncoder(file)
+	if err := encoder.Encode(config); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
 }

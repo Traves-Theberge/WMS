@@ -1,34 +1,35 @@
+# Go
+#
 # Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-wms
 
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool
+# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
-# Go workspace file
-go.work
 
 # Dependency directories
 vendor/
-
-# Environment files
+# Go workspace file
+go.work
+# Environment variables
 .env
-.env.local
-
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS specific files
+# OS-specific files
 .DS_Store
 Thumbs.db
+# Project-specific
+WMS
+WMS.exe
+
+#environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+

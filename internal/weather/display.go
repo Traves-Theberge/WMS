@@ -1,3 +1,4 @@
+// Package weather provides the core logic for fetching, formatting, and displaying weather data.
 package weather
 
 import (
@@ -6,19 +7,19 @@ import (
 
 	"wms/internal/config"
 	"wms/internal/ui/icons"
+	"wms/internal/ui/styles"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
-// DisplayOptions holds display configuration
+// DisplayOptions holds all the configuration options that affect how weather data is displayed.
 type DisplayOptions struct {
 	UseColors    bool
-	Compact      bool
 	ShowCityName bool
 	Units        string // "metric" or "imperial"
 }
 
-// WeatherDisplay holds formatted weather display data
+// WeatherDisplay is a struct that holds pre-formatted weather data ready for display.
 type WeatherDisplay struct {
 	Icon          *icons.WeatherIcon
 	Location      string
@@ -33,11 +34,11 @@ type WeatherDisplay struct {
 	Precipitation string
 }
 
-// FormatWeatherDisplay formats weather data for display
+// FormatWeatherDisplay takes raw weather data and a configuration, and returns a
+// WeatherDisplay struct with all fields formatted for presentation.
 func FormatWeatherDisplay(weather *Weather, cfg config.Config) *WeatherDisplay {
 	opts := DisplayOptions{
 		UseColors:    cfg.UseColors,
-		Compact:      cfg.Compact,
 		ShowCityName: cfg.ShowCityName,
 		Units:        cfg.Units,
 	}
@@ -105,135 +106,15 @@ func FormatWeatherDisplay(weather *Weather, cfg config.Config) *WeatherDisplay {
 	}
 }
 
-// RenderWeatherPanel renders the weather panel in WMS style
-func RenderWeatherPanel(weather *Weather, cfg config.Config, width, height int) string {
-	display := FormatWeatherDisplay(weather, cfg)
-
-	// Define colors for different elements
-	var (
-		titleColor = lipgloss.Color("#60A5FA") // blue-400
-		labelColor = lipgloss.Color("#9CA3AF") // gray-400
-		valueColor = lipgloss.Color("#F3F4F6") // gray-50
-		tempColor  = lipgloss.Color("#06B6D4") // cyan-500
-	)
-
-	// Create styles
-	titleStyle := lipgloss.NewStyle().
-		Foreground(titleColor).
-		Bold(true).
-		Align(lipgloss.Center)
-
-	labelStyle := lipgloss.NewStyle().
-		Foreground(labelColor).
-		Width(10)
-
-	valueStyle := lipgloss.NewStyle().
-		Foreground(valueColor).
-		Bold(true)
-
-	tempStyle := lipgloss.NewStyle().
-		Foreground(tempColor).
-		Bold(true)
-
-	conditionStyle := lipgloss.NewStyle().
-		Foreground(valueColor).
-		Italic(true)
-
-	// Build the panel content
-	var content strings.Builder
-
-	// Title
-	content.WriteString(titleStyle.Render("🌤️  Weather"))
-	content.WriteString("\n\n")
-
-	// Location (if enabled)
-	if cfg.ShowCityName && display.Location != "" {
-		content.WriteString(titleStyle.Render(display.Location))
-		content.WriteString("\n\n")
-	}
-
-	// Weather icon and condition (side by side)
-	if cfg.Compact {
-		// Compact mode - icon and basic info
-		iconLines := display.Icon.Lines
-		if len(iconLines) > 0 {
-			// Show first few lines of icon with key info
-			for i, line := range iconLines[:min(4, len(iconLines))] {
-				content.WriteString(line)
-				if i == 0 {
-					content.WriteString("  " + conditionStyle.Render(display.Condition))
-				} else if i == 1 {
-					content.WriteString("  " + tempStyle.Render(display.Temperature))
-				} else if i == 2 {
-					content.WriteString("  " + valueStyle.Render(display.Wind))
-				} else if i == 3 {
-					content.WriteString("  " + valueStyle.Render(display.Humidity))
-				}
-				content.WriteString("\n")
-			}
-		}
-	} else {
-		// Full mode - show icon and detailed info
-		iconLines := display.Icon.Lines
-
-		// Create info lines
-		infoLines := []string{
-			"",
-			conditionStyle.Render(display.Condition),
-			tempStyle.Render(display.Temperature),
-			labelStyle.Render("Feels like:") + " " + valueStyle.Render(display.FeelsLike),
-			labelStyle.Render("Wind:") + " " + valueStyle.Render(display.Wind),
-			labelStyle.Render("Humidity:") + " " + valueStyle.Render(display.Humidity),
-		}
-
-		// Add optional fields if they have meaningful values
-		if weather.Current.UV > 0 {
-			infoLines = append(infoLines, labelStyle.Render("UV Index:")+" "+valueStyle.Render(display.UV))
-		}
-		if weather.Current.PressureMb > 0 {
-			infoLines = append(infoLines, labelStyle.Render("Pressure:")+" "+valueStyle.Render(display.Pressure))
-		}
-		if weather.Current.Visibility > 0 {
-			infoLines = append(infoLines, labelStyle.Render("Visibility:")+" "+valueStyle.Render(display.Visibility))
-		}
-		if weather.Current.PrecipMm > 0 {
-			infoLines = append(infoLines, labelStyle.Render("Precip:")+" "+valueStyle.Render(display.Precipitation))
-		}
-
-		// Ensure we have enough info lines to match icon height
-		for len(infoLines) < len(iconLines) {
-			infoLines = append(infoLines, "")
-		}
-
-		// Combine icon and info side by side
-		for i := 0; i < len(iconLines); i++ {
-			content.WriteString(iconLines[i])
-			if i < len(infoLines) {
-				content.WriteString("  " + infoLines[i])
-			}
-			content.WriteString("\n")
-		}
-	}
-
-	// Apply panel styling
-	panelStyle := lipgloss.NewStyle().
-		Width(width).
-		Height(height).
-		Padding(1, 2).
-		Align(lipgloss.Left, lipgloss.Top)
-
-	return panelStyle.Render(content.String())
-}
-
-// RenderWeatherCompact renders a compact weather display similar to Stormy
+// RenderWeatherCompact creates a compact, two-column string representation of the
+// weather, inspired by the Stormy TUI. It features an ASCII art icon on the
+// left and formatted weather data on the right.
 func RenderWeatherCompact(weather *Weather, cfg config.Config) string {
 	display := FormatWeatherDisplay(weather, cfg)
 
-	// Define colors to match the reference image
-	var (
-		labelColor = lipgloss.Color("#9CA3AF") // gray-400 for labels
-		valueColor = lipgloss.Color("#F3F4F6") // gray-100 for values
-	)
+	// Use themed colors for the weather card
+	labelColor := styles.WeatherColor
+	valueColor := styles.TextPrimary // Use primary text color for values
 
 	// Create styles
 	labelStyle := lipgloss.NewStyle().Foreground(labelColor)
@@ -268,10 +149,13 @@ func RenderWeatherCompact(weather *Weather, cfg config.Config) string {
 	iconBlock := lipgloss.JoinVertical(lipgloss.Left, iconLines...)
 	textBlock := lipgloss.JoinVertical(lipgloss.Left, textLines...)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, iconBlock, "    ", textBlock)
+	// Apply background color to the entire block
+	return lipgloss.NewStyle().
+		Render(lipgloss.JoinHorizontal(lipgloss.Top, iconBlock, "    ", textBlock))
 }
 
-// Helper functions
+// getWindDirectionSymbol converts a wind direction string (e.g., "N", "SSW")
+// into a corresponding arrow symbol for a more visual representation.
 func getWindDirectionSymbol(dir string) string {
 	switch dir {
 	case "N":
@@ -295,30 +179,7 @@ func getWindDirectionSymbol(dir string) string {
 	}
 }
 
-func getConditionColor(condition string, useColors bool) lipgloss.Color {
-	if !useColors {
-		return lipgloss.Color("#F3F4F6") // gray-50
-	}
-
-	switch {
-	case strings.Contains(strings.ToLower(condition), "clear") || strings.Contains(strings.ToLower(condition), "sunny"):
-		return lipgloss.Color("#FCD34D") // amber-300
-	case strings.Contains(strings.ToLower(condition), "cloud"):
-		return lipgloss.Color("#A78BFA") // violet-400
-	case strings.Contains(strings.ToLower(condition), "rain"):
-		return lipgloss.Color("#60A5FA") // blue-400
-	case strings.Contains(strings.ToLower(condition), "snow"):
-		return lipgloss.Color("#F3F4F6") // gray-50
-	case strings.Contains(strings.ToLower(condition), "thunder"):
-		return lipgloss.Color("#FBBF24") // amber-400
-	case strings.Contains(strings.ToLower(condition), "fog") || strings.Contains(strings.ToLower(condition), "mist"):
-		return lipgloss.Color("#D1D5DB") // gray-300
-	default:
-		return lipgloss.Color("#F87171") // red-400
-	}
-}
-
-// Utility functions
+// min is a utility function that returns the smaller of two integers.
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -326,6 +187,7 @@ func min(a, b int) int {
 	return b
 }
 
+// max is a utility function that returns the larger of two integers.
 func max(a, b int) int {
 	if a > b {
 		return a

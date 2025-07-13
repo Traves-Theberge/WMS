@@ -1,10 +1,15 @@
 package components
 
 import (
-	"log"
-	"wms/internal/api"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
 )
 
+// Moon holds the state of the moon component, including phase, illumination,
+// and other data.
 type Moon struct {
 	Phase        string
 	Illumination float64
@@ -16,8 +21,19 @@ type Moon struct {
 	Error        error
 }
 
+// MoonData represents the structure of the JSON response from the Farmsense API.
+type MoonData struct {
+	Phase        string   `json:"Phase"`
+	Illumination float64  `json:"Illumination"`
+	Age          float64  `json:"Age"`
+	Moon         []string `json:"Moon"`
+}
+
+// MoonResponse is a wrapper for a slice of MoonData.
+type MoonResponse []MoonData
+
+// NewMoon creates a new Moon component with a default loading state.
 func NewMoon() Moon {
-	// Return default/loading state
 	return Moon{
 		Phase:        "Loading...",
 		Illumination: 0.0,
@@ -29,8 +45,37 @@ func NewMoon() Moon {
 	}
 }
 
-// UpdateWithData updates the moon component with API data
-func (m *Moon) UpdateWithData(data *api.MoonResponse) {
+// FetchMoonData fetches the current moon phase data from the Farmsense API.
+func FetchMoonData() (*MoonResponse, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	timestamp := time.Now().Unix()
+	url := fmt.Sprintf("https://api.farmsense.net/v1/moonphases/?d=%d", timestamp)
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch moon data: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("moon API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read moon response body: %w", err)
+	}
+
+	var moonData MoonResponse
+	if err := json.Unmarshal(body, &moonData); err != nil {
+		return nil, fmt.Errorf("failed to parse moon JSON: %w", err)
+	}
+
+	return &moonData, nil
+}
+
+// UpdateWithData updates the moon component's state with new data from the API.
+func (m *Moon) UpdateWithData(data *MoonResponse) {
 	if len(*data) > 0 {
 		currentMoon := (*data)[0]
 
@@ -45,7 +90,7 @@ func (m *Moon) UpdateWithData(data *api.MoonResponse) {
 		}
 
 		// Calculate next phase
-		m.NextPhase, m.DaysToNext = api.CalculateNextPhase(currentMoon.Age, currentMoon.Phase)
+		m.NextPhase, m.DaysToNext = calculateNextPhase(currentMoon.Age)
 	}
 
 	m.IsLoading = false
@@ -56,8 +101,6 @@ func (m *Moon) UpdateWithData(data *api.MoonResponse) {
 func (m *Moon) UpdateWithError(err error) {
 	m.Error = err
 	m.IsLoading = false
-	log.Printf("Failed to fetch moon data: %v", err)
-
 	// Use fallback data
 	m.Phase = "Error loading data"
 	m.Illumination = 0.0
@@ -65,6 +108,40 @@ func (m *Moon) UpdateWithError(err error) {
 	m.DaysToNext = 0
 	m.Icon = "🌙"
 	m.MoonName = ""
+}
+
+// calculateNextPhase is a helper function to determine the next moon phase.
+func calculateNextPhase(currentAge float64) (string, int) {
+	const moonCycle = 29.53
+	phases := []struct {
+		name string
+		age  float64
+	}{
+		{"New Moon", 0},
+		{"Waxing Crescent", 3.69},
+		{"First Quarter", 7.38},
+		{"Waxing Gibbous", 11.07},
+		{"Full Moon", 14.77},
+		{"Waning Gibbous", 18.46},
+		{"Last Quarter", 22.15},
+		{"Waning Crescent", 25.84},
+	}
+
+	for _, phase := range phases {
+		if currentAge < phase.age {
+			daysToNext := int(phase.age - currentAge)
+			if daysToNext == 0 {
+				daysToNext = 1
+			}
+			return phase.name, daysToNext
+		}
+	}
+
+	daysToNext := int(moonCycle - currentAge)
+	if daysToNext == 0 {
+		daysToNext = 1
+	}
+	return "New Moon", daysToNext
 }
 
 // GetMoonIcon returns the appropriate moon emoji based on phase

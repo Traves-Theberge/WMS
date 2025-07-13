@@ -1,3 +1,4 @@
+// Package weather provides all the core logic for fetching and processing weather data.
 package weather
 
 import (
@@ -10,12 +11,15 @@ import (
 	"time"
 )
 
+// Constants for the supported weather providers.
 const (
 	ProviderWeatherAPI = "WeatherAPI"
 	ProviderOpenMeteo  = "OpenMeteo"
 )
 
-// Weather holds the standardized weather data
+// Weather is a standardized struct that holds weather data from any provider.
+// This ensures that the application can handle data from different APIs in a
+// consistent way.
 type Weather struct {
 	Location struct {
 		Name      string  `json:"name"`
@@ -44,7 +48,8 @@ type Weather struct {
 	} `json:"current"`
 }
 
-// WeatherAPIResponse represents the response from WeatherAPI
+// WeatherAPIResponse represents the specific JSON structure returned by the
+// WeatherAPI service.
 type WeatherAPIResponse struct {
 	Location struct {
 		Name      string  `json:"name"`
@@ -77,7 +82,8 @@ type WeatherAPIResponse struct {
 	} `json:"current"`
 }
 
-// OpenMeteoResponse represents the response from Open-Meteo
+// OpenMeteoResponse represents the specific JSON structure returned by the
+// Open-Meteo service.
 type OpenMeteoResponse struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
@@ -94,7 +100,7 @@ type OpenMeteoResponse struct {
 	} `json:"current"`
 }
 
-// GeoResult represents a geocoding result
+// GeoResult represents a single geocoding result from the Open-Meteo geocoding API.
 type GeoResult struct {
 	ID        int     `json:"id"`
 	Name      string  `json:"name"`
@@ -104,29 +110,34 @@ type GeoResult struct {
 	Admin1    string  `json:"admin1"`
 }
 
-// GeoResponse represents the geocoding API response
+// GeoResponse is a wrapper for a slice of GeoResult, representing the full
+// response from the geocoding API.
 type GeoResponse struct {
 	Results []GeoResult `json:"results"`
 }
 
-// WeatherProvider interface defines the contract for weather providers
+// WeatherProvider defines a common interface for all weather providers. This
+// allows the application to switch between different weather APIs seamlessly.
 type WeatherProvider interface {
 	FetchWeather(location string) (*Weather, error)
 	GetProviderName() string
 }
 
-// WeatherAPIProvider implements WeatherProvider for WeatherAPI
+// WeatherAPIProvider is an implementation of the WeatherProvider interface for
+// the WeatherAPI service.
 type WeatherAPIProvider struct {
 	APIKey string
 	Client *http.Client
 }
 
-// OpenMeteoProvider implements WeatherProvider for Open-Meteo
+// OpenMeteoProvider is an implementation of the WeatherProvider interface for
+// the Open-Meteo service.
 type OpenMeteoProvider struct {
 	Client *http.Client
 }
 
-// NewWeatherAPIProvider creates a new WeatherAPI provider
+// NewWeatherAPIProvider creates a new instance of the WeatherAPIProvider with
+// the provided API key.
 func NewWeatherAPIProvider(apiKey string) *WeatherAPIProvider {
 	return &WeatherAPIProvider{
 		APIKey: apiKey,
@@ -134,14 +145,14 @@ func NewWeatherAPIProvider(apiKey string) *WeatherAPIProvider {
 	}
 }
 
-// NewOpenMeteoProvider creates a new Open-Meteo provider
+// NewOpenMeteoProvider creates a new instance of the OpenMeteoProvider.
 func NewOpenMeteoProvider() *OpenMeteoProvider {
 	return &OpenMeteoProvider{
 		Client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
-// FetchWeather implements WeatherProvider for WeatherAPI
+// FetchWeather fetches and standardizes weather data from the WeatherAPI service.
 func (w *WeatherAPIProvider) FetchWeather(location string) (*Weather, error) {
 	encodedLocation := url.QueryEscape(location)
 	apiURL := fmt.Sprintf(
@@ -215,12 +226,12 @@ func (w *WeatherAPIProvider) FetchWeather(location string) (*Weather, error) {
 	return weather, nil
 }
 
-// GetProviderName returns the provider name
+// GetProviderName returns the name of the provider.
 func (w *WeatherAPIProvider) GetProviderName() string {
 	return ProviderWeatherAPI
 }
 
-// FetchWeather implements WeatherProvider for Open-Meteo
+// FetchWeather fetches and standardizes weather data from the Open-Meteo service.
 func (o *OpenMeteoProvider) FetchWeather(location string) (*Weather, error) {
 	// First, get coordinates for the location
 	geoResult, err := o.getFirstGeoResult(location)
@@ -306,12 +317,13 @@ func (o *OpenMeteoProvider) FetchWeather(location string) (*Weather, error) {
 	return weather, nil
 }
 
-// GetProviderName returns the provider name
+// GetProviderName returns the name of the provider.
 func (o *OpenMeteoProvider) GetProviderName() string {
 	return ProviderOpenMeteo
 }
 
-// getFirstGeoResult gets the first geocoding result for a location
+// getFirstGeoResult is a helper function that fetches the geographic
+// coordinates for a given location string.
 func (o *OpenMeteoProvider) getFirstGeoResult(location string) (*GeoResult, error) {
 	encodedLocation := url.QueryEscape(location)
 	geoURL := fmt.Sprintf("https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1", encodedLocation)
@@ -339,21 +351,26 @@ func (o *OpenMeteoProvider) getFirstGeoResult(location string) (*GeoResult, erro
 	return &geo.Results[0], nil
 }
 
-// Helper functions
+// celsiusToFahrenheit is a utility function to convert Celsius to Fahrenheit.
 func celsiusToFahrenheit(c float64) float64 {
 	return c*9/5 + 32
 }
 
+// kmhToMph is a utility function to convert kilometers per hour to miles per hour.
 func kmhToMph(kmh float64) float64 {
 	return kmh * 0.621371
 }
 
+// degreeToDirection is a utility function that converts a wind direction in
+// degrees to a more readable cardinal direction (e.g., "N", "SSW").
 func degreeToDirection(degree int) string {
 	directions := []string{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"}
 	index := int((float64(degree)+11.25)/22.5) % 16
 	return directions[index]
 }
 
+// weatherCodeToCondition is a utility function that converts an Open-Meteo
+// weather code into a human-readable weather condition string.
 func weatherCodeToCondition(code int) string {
 	switch code {
 	case 0:
@@ -387,7 +404,8 @@ func weatherCodeToCondition(code int) string {
 	}
 }
 
-// CreateWeatherProvider creates a weather provider based on the provider name
+// CreateWeatherProvider is a factory function that creates and returns a
+// weather provider based on the provider name and API key.
 func CreateWeatherProvider(providerName, apiKey string) (WeatherProvider, error) {
 	switch strings.ToLower(providerName) {
 	case strings.ToLower(ProviderWeatherAPI):
@@ -400,14 +418,4 @@ func CreateWeatherProvider(providerName, apiKey string) (WeatherProvider, error)
 	default:
 		return nil, fmt.Errorf("unsupported weather provider: %s", providerName)
 	}
-}
-
-// FetchWeather is a convenience function that creates a provider and fetches weather
-func FetchWeather(providerName, apiKey, location string) (*Weather, error) {
-	provider, err := CreateWeatherProvider(providerName, apiKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return provider.FetchWeather(location)
 }

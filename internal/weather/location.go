@@ -1,3 +1,4 @@
+// Package weather provides core logic for fetching weather and location data.
 package weather
 
 import (
@@ -8,7 +9,8 @@ import (
 	"time"
 )
 
-// IPLocationResponse represents the response from IP geolocation service
+// IPLocationResponse represents the structure of the JSON response from the
+// ip-api.com geolocation service.
 type IPLocationResponse struct {
 	City    string  `json:"city"`
 	Region  string  `json:"region"`
@@ -18,32 +20,39 @@ type IPLocationResponse struct {
 	Query   string  `json:"query"`
 }
 
-// DetectLocationFromIP detects location based on IP address using ip-api.com (free service)
+// DetectLocationFromIP attempts to determine the user's location based on their
+// public IP address. It uses the free ip-api.com service, which requires no
+// API key.
 func DetectLocationFromIP() (string, error) {
+	// Initialize an HTTP client with a 10-second timeout to prevent the
+	// application from hanging on slow network requests.
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	// Use ip-api.com free service (no API key required)
+	// Make a GET request to the ip-api.com JSON endpoint.
 	resp, err := client.Get("http://ip-api.com/json/")
 	if err != nil {
 		return "", fmt.Errorf("failed to get location from IP: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check for a successful HTTP status code.
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("IP geolocation service returned status %d", resp.StatusCode)
 	}
 
+	// Read the response body.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
+	// Unmarshal the JSON response into the IPLocationResponse struct.
 	var location IPLocationResponse
 	if err := json.Unmarshal(body, &location); err != nil {
 		return "", fmt.Errorf("failed to parse location response: %w", err)
 	}
 
-	// Return city name, or city + region if available
+	// Return the most specific location information available.
 	if location.City != "" {
 		if location.Region != "" && location.Region != location.City {
 			return fmt.Sprintf("%s, %s", location.City, location.Region), nil
@@ -51,10 +60,11 @@ func DetectLocationFromIP() (string, error) {
 		return location.City, nil
 	}
 
-	// Fallback to country if city not available
+	// Fallback to the country name if the city is not available.
 	if location.Country != "" {
 		return location.Country, nil
 	}
 
+	// If no location information can be determined, return an error.
 	return "", fmt.Errorf("no location information available")
 }

@@ -1,3 +1,5 @@
+// Package messages defines the messages used for communication between different
+// parts of the WMS application.
 package messages
 
 import (
@@ -9,19 +11,23 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// WeatherMsg represents a weather update message
+// WeatherMsg is a message that is sent when weather data has been fetched. It
+// contains either the weather data or an error if the fetch failed.
 type WeatherMsg struct {
 	Weather *weather.Weather
 	Error   error
 }
 
-// FetchWeatherWithConfigCmd creates a command to fetch weather using the new provider system
+// FetchWeatherWithConfigCmd creates a Bubble Tea command that fetches weather
+// data using the new provider system. It takes a Config struct and returns a
+// command function that can be executed by the Bubble Tea runtime.
 func FetchWeatherWithConfigCmd(cfg config.Config) tea.Cmd {
 	return func() tea.Msg {
-		// Use configured location or detect from IP
+		// Use the location from the config, or fall back to IP detection if no
+		// location is specified.
 		location := cfg.Location
 		if location == "" {
-			// Try to detect location from IP
+			// Attempt to automatically detect the user's location via their IP address.
 			detectedLocation, err := weather.DetectLocationFromIP()
 			if err != nil {
 				return WeatherMsg{
@@ -32,8 +38,14 @@ func FetchWeatherWithConfigCmd(cfg config.Config) tea.Cmd {
 			location = detectedLocation
 		}
 
-		// Fetch weather using the new provider system
-		weatherData, err := weather.FetchWeather(cfg.WeatherProvider, cfg.WeatherAPIKey, location)
+		// Create a weather provider based on the configuration.
+		provider, err := weather.CreateWeatherProvider(cfg.WeatherProvider, cfg.WeatherAPIKey)
+		if err != nil {
+			return WeatherMsg{Error: fmt.Errorf("failed to create weather provider: %w", err)}
+		}
+
+		// Fetch the weather data using the provider.
+		weatherData, err := provider.FetchWeather(location)
 		if err != nil {
 			return WeatherMsg{
 				Weather: nil,
@@ -41,6 +53,7 @@ func FetchWeatherWithConfigCmd(cfg config.Config) tea.Cmd {
 			}
 		}
 
+		// Return the weather data in a WeatherMsg.
 		return WeatherMsg{
 			Weather: weatherData,
 			Error:   nil,

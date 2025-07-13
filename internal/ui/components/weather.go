@@ -1,11 +1,12 @@
 package components
 
 import (
-	"fmt"
 	"log"
-	"wms/internal/api"
+	"wms/internal/weather"
 )
 
+// Weather holds the state for the legacy weather component. It is used as a
+// fallback and for data that is not yet handled by the new weather system.
 type Weather struct {
 	Temperature float64
 	Condition   string
@@ -33,25 +34,20 @@ func NewWeather() Weather {
 	}
 }
 
-// UpdateWithData updates the weather component with API data
-func (w *Weather) UpdateWithData(data *api.WeatherResponse) {
+// UpdateWithData updates the weather component with standardized weather data.
+func (w *Weather) UpdateWithData(data *weather.Weather) {
 	w.Temperature = data.Current.TempF
-	w.Condition = data.Current.Condition.Text
+	w.Condition = data.Current.Condition
 	w.Humidity = data.Current.Humidity
 	w.WindSpeed = data.Current.WindMph
 	w.FeelsLike = data.Current.FeelslikeF
 	w.UV = data.Current.UV
-	w.Location = fmt.Sprintf("%s, %s", data.Location.Name, data.Location.Region)
-
-	// Check if it's day based on the is_day field from API
-	isDay := data.Current.IsDay == 1
-	w.Icon = api.GetWeatherIcon(data.Current.Condition.Text, isDay)
-
+	w.Location = data.Location.Name
 	w.IsLoading = false
 	w.Error = nil
 }
 
-// UpdateWithError updates the weather component with an error state
+// UpdateWithError updates the weather component with an error state.
 func (w *Weather) UpdateWithError(err error) {
 	w.Error = err
 	w.IsLoading = false

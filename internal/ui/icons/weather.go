@@ -1,16 +1,20 @@
+// Package icons provides the ASCII art and color styling for the weather icons.
 package icons
 
 import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// WeatherIcon represents a weather icon with color support
+// WeatherIcon represents a weather icon, containing the ASCII art lines and a
+// flag to determine whether to use colors.
 type WeatherIcon struct {
 	Lines     []string
 	UseColors bool
 }
 
-// GetWeatherIcon returns the appropriate weather icon based on condition and day/night
+// GetWeatherIcon is a factory function that returns a new WeatherIcon struct.
+// It determines the correct icon to use based on the weather condition and whether
+// it is currently day or night.
 func GetWeatherIcon(condition string, isDay bool, useColors bool) *WeatherIcon {
 	iconName := mapConditionToIcon(condition, isDay)
 	return &WeatherIcon{
@@ -19,7 +23,8 @@ func GetWeatherIcon(condition string, isDay bool, useColors bool) *WeatherIcon {
 	}
 }
 
-// mapConditionToIcon maps weather conditions to icon names
+// mapConditionToIcon is a helper function that maps a human-readable weather
+// condition string to a standardized icon name.
 func mapConditionToIcon(condition string, isDay bool) string {
 	switch condition {
 	case "Sunny", "Clear":
@@ -55,7 +60,8 @@ func mapConditionToIcon(condition string, isDay bool) string {
 	}
 }
 
-// getIcon returns the ASCII art for a given weather condition
+// getIcon is a helper function that retrieves the ASCII art for a given icon
+// name, returning either a colored or monochrome version based on the useColors flag.
 func getIcon(name string, useColors bool) []string {
 	if useColors {
 		return getColoredIcon(name)
@@ -63,7 +69,7 @@ func getIcon(name string, useColors bool) []string {
 	return getMonochromeIcon(name)
 }
 
-// getMonochromeIcon returns monochrome ASCII art icons
+// getMonochromeIcon returns a map of all the monochrome ASCII art icons.
 func getMonochromeIcon(name string) []string {
 	icons := map[string][]string{
 		"Unknown": {
@@ -200,7 +206,8 @@ func getMonochromeIcon(name string) []string {
 	return icons["Unknown"]
 }
 
-// getColoredIcon returns colored ASCII art icons using lipgloss
+// getColoredIcon returns a map of all the colored ASCII art icons, using
+// lipgloss for styling.
 func getColoredIcon(name string) []string {
 	// Define colors
 	sunColor := lipgloss.Color("#FCD34D")       // amber-300
@@ -336,27 +343,4 @@ func getColoredIcon(name string) []string {
 		return icon
 	}
 	return getMonochromeIcon("Unknown")
-}
-
-// RenderIcon renders the weather icon as a string
-func (w *WeatherIcon) RenderIcon() string {
-	result := ""
-	for _, line := range w.Lines {
-		result += line + "\n"
-	}
-	return result
-}
-
-// GetHeight returns the height of the icon
-func (w *WeatherIcon) GetHeight() int {
-	return len(w.Lines)
-}
-
-// GetWidth returns the width of the icon (assumes all lines are same width)
-func (w *WeatherIcon) GetWidth() int {
-	if len(w.Lines) == 0 {
-		return 0
-	}
-	// Return the width of the first line (assuming all lines are the same width)
-	return len(w.Lines[0])
 }
