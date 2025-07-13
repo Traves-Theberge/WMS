@@ -1,6 +1,6 @@
 # WMS - Weather, Moon, & Solar / Weather Management System.
 
-A comprehensive, terminal-based weather dashboard inspired by the aesthetics and functionality of [Stormy](https://github.com/dpr-1/stormy'). WMS provides detailed weather, moon phase, and solar information in a clean, elegant, and highly configurable TUI (Text-based User Interface).
+A comprehensive, terminal-based weather dashboard, WMS provides detailed weather, moon phase, and solar information in a clean, elegant, and highly configurable TUI (Text-based User Interface).
 
 <p align="center">
   <img src="assets/images/Weather.png" width="32%" />
