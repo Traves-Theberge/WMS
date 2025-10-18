@@ -145,6 +145,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "1":
+			m.viewMode = ViewWeather
+			return m, nil
+		case "2":
+			m.viewMode = ViewMoon
+			return m, nil
+		case "3":
+			m.viewMode = ViewSolar
+			return m, nil
 		case "r":
 			m.refreshing = true
 			m.statusMsg = "Refreshing..."
@@ -152,14 +161,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.weatherError = nil
 			return m, messages.FetchWeatherWithConfigCmd(m.config)
 		case "u":
-			// Cycle through units and time formats
+			// Cycle through all combinations of units and time formats
 			switch {
-			case m.config.Units == "metric":
+			case m.config.Units == "metric" && m.config.TimeFormat == "24":
+				m.config.TimeFormat = "12"
+				m.statusMsg = "Units: Metric, Time: 12h"
+			case m.config.Units == "metric" && m.config.TimeFormat == "12":
 				m.config.Units = "imperial"
-				m.statusMsg = "Units: Imperial"
+				m.config.TimeFormat = "24"
+				m.statusMsg = "Units: Imperial, Time: 24h"
 			case m.config.Units == "imperial" && m.config.TimeFormat == "24":
 				m.config.TimeFormat = "12"
-				m.statusMsg = "Time: 12-hour"
+				m.statusMsg = "Units: Imperial, Time: 12h"
 			case m.config.Units == "imperial" && m.config.TimeFormat == "12":
 				m.config.Units = "metric"
 				m.config.TimeFormat = "24"
@@ -167,6 +180,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.statusTimer = time.Now()
 			return m, messages.FetchWeatherWithConfigCmd(m.config)
+		case "t":
+			// Toggle time format
+			if m.config.TimeFormat == "24" {
+				m.config.TimeFormat = "12"
+				m.statusMsg = "Time: 12-hour"
+			} else {
+				m.config.TimeFormat = "24"
+				m.statusMsg = "Time: 24-hour"
+			}
+			m.statusTimer = time.Now()
+			return m, nil
 		case "s":
 			// Open the settings menu
 			m.viewMode = ViewSettings
@@ -227,6 +251,8 @@ func (m Model) updateMainView(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab":
 		m.viewMode = (m.viewMode + 1) % 3 // Simple cycle through main views
+	case "shift+tab":
+		m.viewMode = (m.viewMode - 1 + 3) % 3 // Reverse cycle through main views
 	}
 	return m, nil
 }

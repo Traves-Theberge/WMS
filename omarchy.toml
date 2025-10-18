@@ -1,0 +1,37 @@
+# WMS - Weather Management System
+# Omarchy TUI Configuration
+
+[app]
+name = "WMS"
+description = "Weather, Moon & Solar Dashboard"
+version = "1.0.0"
+category = "utilities"
+
+[launch]
+command = "/home/traves/Development/WMS/wms"
+working_directory = "/home/traves/Development/WMS"
+terminal_required = true
+fullscreen = true
+
+[requirements]
+dependencies = ["go"]
+environment_files = [".env"]
+
+[interface]
+type = "tui"
+color_support = true
+mouse_support = true
+resize_support = true
+
+[features]
+- "Real-time weather data"
+- "Moon phase information" 
+- "Solar/sunrise data"
+- "Tabbed interface"
+- "Configurable units"
+- "Auto location detection"
+
+[shortcuts]
+help = "Press ? for help within the application"
+quit = "Press q or Ctrl+C to quit"
+tabs = "Use Tab/Shift+Tab or 1-3 to switch views"

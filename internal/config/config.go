@@ -58,7 +58,7 @@ const (
 func DefaultConfig() Config {
 	return Config{
 		WeatherProvider: ProviderWeatherAPI,
-		Location:        "New York",
+		Location:        "", // Empty so IP detection is used
 		LocationMode:    "ip",
 		Units:           "metric",
 		TimeFormat:      "24",
@@ -238,10 +238,12 @@ func ParseFlags() Flags {
 		flag.PrintDefaults()
 		fmt.Fprintln(os.Stderr, "\nConfig file is located at:", GetConfigPath())
 		fmt.Fprintln(os.Stderr, "\nKeyboard shortcuts:")
-		fmt.Fprintln(os.Stderr, "  [U] - Toggle temperature units")
-		fmt.Fprintln(os.Stderr, "  [T] - Toggle time format")
-		fmt.Fprintln(os.Stderr, "  [S] - Toggle speed units")
+		fmt.Fprintln(os.Stderr, "  [1-3] - Switch between Weather/Moon/Solar tabs")
+		fmt.Fprintln(os.Stderr, "  [Tab/Shift+Tab] - Navigate tabs")
+		fmt.Fprintln(os.Stderr, "  [U] - Cycle units/time (Metric 24h → Metric 12h → Imperial 24h → Imperial 12h)")
+		fmt.Fprintln(os.Stderr, "  [T] - Toggle time format only")
 		fmt.Fprintln(os.Stderr, "  [R] - Refresh data")
+		fmt.Fprintln(os.Stderr, "  [S] - Settings menu")
 		fmt.Fprintln(os.Stderr, "  [Q] - Quit")
 	}
 

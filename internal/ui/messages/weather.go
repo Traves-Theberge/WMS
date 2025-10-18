@@ -23,10 +23,9 @@ type WeatherMsg struct {
 // command function that can be executed by the Bubble Tea runtime.
 func FetchWeatherWithConfigCmd(cfg config.Config) tea.Cmd {
 	return func() tea.Msg {
-		// Use the location from the config, or fall back to IP detection if no
-		// location is specified.
-		location := cfg.Location
-		if location == "" {
+		// Determine location based on LocationMode setting
+		var location string
+		if cfg.LocationMode == "ip" || cfg.Location == "" {
 			// Attempt to automatically detect the user's location via their IP address.
 			detectedLocation, err := weather.DetectLocationFromIP()
 			if err != nil {
@@ -36,6 +35,9 @@ func FetchWeatherWithConfigCmd(cfg config.Config) tea.Cmd {
 				}
 			}
 			location = detectedLocation
+		} else {
+			// Use the manually specified location
+			location = cfg.Location
 		}
 
 		// Create a weather provider based on the configuration.

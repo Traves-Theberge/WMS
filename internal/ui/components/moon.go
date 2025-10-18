@@ -46,29 +46,32 @@ func NewMoon() Moon {
 }
 
 // FetchMoonData fetches the current moon phase data from the Farmsense API.
+// If the API is unavailable, it falls back to calculating moon phase locally.
 func FetchMoonData() (*MoonResponse, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second} // Reduced timeout
 	timestamp := time.Now().Unix()
 	url := fmt.Sprintf("https://api.farmsense.net/v1/moonphases/?d=%d", timestamp)
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch moon data: %w", err)
+		// Fallback to local calculation if API is unavailable
+		return calculateMoonPhaseLocally()
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("moon API returned status %d", resp.StatusCode)
+		// Fallback to local calculation if API returns error
+		return calculateMoonPhaseLocally()
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read moon response body: %w", err)
+		return calculateMoonPhaseLocally()
 	}
 
 	var moonData MoonResponse
 	if err := json.Unmarshal(body, &moonData); err != nil {
-		return nil, fmt.Errorf("failed to parse moon JSON: %w", err)
+		return calculateMoonPhaseLocally()
 	}
 
 	return &moonData, nil
@@ -166,4 +169,65 @@ func GetMoonIcon(phase string) string {
 	default:
 		return "🌙"
 	}
+}
+
+// calculateMoonPhaseLocally calculates moon phase using astronomical formulas
+// This is a fallback when the API is unavailable
+func calculateMoonPhaseLocally() (*MoonResponse, error) {
+	now := time.Now()
+
+	// Calculate days since J2000 (January 1, 2000, 12:00 TT)
+	j2000 := time.Date(2000, 1, 1, 12, 0, 0, 0, time.UTC)
+	daysSinceJ2000 := now.Sub(j2000).Hours() / 24.0
+
+	// Calculate lunar cycle position (synodic month ≈ 29.53059 days)
+	lunarCycle := 29.53059
+	cyclePosition := daysSinceJ2000 / lunarCycle
+	cyclePosition = cyclePosition - float64(int(cyclePosition)) // Get fractional part
+
+	// Calculate moon age in days
+	moonAge := cyclePosition * lunarCycle
+
+	// Calculate illumination based on cycle position
+	var illumination float64
+	if cyclePosition <= 0.5 {
+		illumination = cyclePosition * 2 // 0 to 1 (new to full)
+	} else {
+		illumination = 2 - (cyclePosition * 2) // 1 to 0 (full to new)
+	}
+
+	// Determine phase name based on moon age
+	var phaseName string
+	switch {
+	case moonAge < 1.84566:
+		phaseName = "New Moon"
+	case moonAge < 5.53699:
+		phaseName = "Waxing Crescent"
+	case moonAge < 9.22831:
+		phaseName = "First Quarter"
+	case moonAge < 12.91963:
+		phaseName = "Waxing Gibbous"
+	case moonAge < 16.61096:
+		phaseName = "Full Moon"
+	case moonAge < 20.30228:
+		phaseName = "Waning Gibbous"
+	case moonAge < 23.99361:
+		phaseName = "Last Quarter"
+	case moonAge < 27.68493:
+		phaseName = "Waning Crescent"
+	default:
+		phaseName = "New Moon"
+	}
+
+	// Create moon data response
+	moonData := MoonResponse{
+		{
+			Phase:        phaseName,
+			Illumination: illumination,
+			Age:          moonAge,
+			Moon:         []string{"Calculated"},
+		},
+	}
+
+	return &moonData, nil
 }
