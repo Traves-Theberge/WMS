@@ -337,15 +337,29 @@ func (m Model) updateLocationInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.statusMsg = "Location saved!"
 		m.statusTimer = time.Now()
 		return m, messages.FetchWeatherWithConfigCmd(m.config)
-	case "backspace":
+	case "backspace", "ctrl+h":
 		if len(m.locationInput) > 0 {
 			m.locationInput = m.locationInput[:len(m.locationInput)-1]
 		}
 		return m, nil
+	case "ctrl+u":
+		// Clear entire line
+		m.locationInput = ""
+		return m, nil
+	case "ctrl+w":
+		// Delete word backwards
+		m.locationInput = ""
+		return m, nil
 	default:
-		// Only handle printable characters for text input
-		if len(msg.String()) == 1 {
-			m.locationInput += msg.String()
+		// Handle paste events and multi-character input
+		input := msg.String()
+
+		// Filter out control characters but allow paste
+		if len(input) > 0 {
+			// Allow paste or multi-character input
+			if len(input) > 1 || (len(input) == 1 && input[0] >= 32 && input[0] <= 126) {
+				m.locationInput += input
+			}
 		}
 		return m, nil
 	}
@@ -374,15 +388,29 @@ func (m Model) updateAPIKeyInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		m.statusTimer = time.Now()
 		return m, messages.FetchWeatherWithConfigCmd(m.config)
-	case "backspace":
+	case "backspace", "ctrl+h":
 		if len(m.apiKeyInput) > 0 {
 			m.apiKeyInput = m.apiKeyInput[:len(m.apiKeyInput)-1]
 		}
 		return m, nil
+	case "ctrl+u":
+		// Clear entire line
+		m.apiKeyInput = ""
+		return m, nil
+	case "ctrl+w":
+		// Delete word backwards
+		m.apiKeyInput = ""
+		return m, nil
 	default:
-		// Only handle printable characters for text input
-		if len(msg.String()) == 1 {
-			m.apiKeyInput += msg.String()
+		// Handle paste events and multi-character input
+		input := msg.String()
+
+		// Filter out control characters but allow paste
+		if len(input) > 0 {
+			// Allow paste or multi-character input
+			if len(input) > 1 || (len(input) == 1 && input[0] >= 32 && input[0] <= 126) {
+				m.apiKeyInput += input
+			}
 		}
 		return m, nil
 	}
@@ -411,14 +439,10 @@ func (m Model) View() string {
 	var activeContent string
 	var activeColor lipgloss.Color
 
-	// Pre-generate all panel content to calculate max dimensions
+	// Pre-generate all panel content
 	weatherContent := m.createWeatherPanelContent()
 	moonContent := m.createMoonPanelContent()
 	solarContent := m.createSolarPanelContent()
-
-	// Calculate max dimensions of the content itself
-	maxContentWidth := max(lipgloss.Width(weatherContent), lipgloss.Width(moonContent), lipgloss.Width(solarContent))
-	maxContentHeight := max(lipgloss.Height(weatherContent), lipgloss.Height(moonContent), lipgloss.Height(solarContent))
 
 	switch m.viewMode {
 	case ViewWeather:
@@ -441,29 +465,30 @@ func (m Model) View() string {
 		activeColor = styles.Primary
 	}
 
-	// Calculate available space for the card
-	availableWidth := m.width - 4  // Leave some margin
-	availableHeight := contentHeight - 4
+	// Calculate available space - use most of the screen
+	borderPadding := 8 // Account for border + padding
+	availableWidth := m.width - borderPadding
+	availableHeight := contentHeight - borderPadding
 
-	// Determine card dimensions - use max content size but constrain to available space
-	cardWidth := maxContentWidth + 4
-	if cardWidth > availableWidth {
-		cardWidth = availableWidth
+	// Don't make the card too small
+	minWidth := 60
+	minHeight := 20
+
+	if availableWidth < minWidth {
+		availableWidth = minWidth
+	}
+	if availableHeight < minHeight {
+		availableHeight = minHeight
 	}
 
-	cardHeight := maxContentHeight + 2
-	if cardHeight > availableHeight {
-		cardHeight = availableHeight
-	}
-
-	// Define a responsive card style
+	// Define a responsive card style that fills most of the screen
 	cardStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(activeColor).
 		Padding(1, 2).
-		Width(cardWidth).
-		Height(cardHeight).
-		Align(lipgloss.Left, lipgloss.Top)
+		Width(availableWidth).
+		Height(availableHeight).
+		Align(lipgloss.Center, lipgloss.Top)
 
 	// Render the card with the active content
 	renderedCard := cardStyle.Render(activeContent)
@@ -722,11 +747,12 @@ func (m Model) renderAPIKeyInput() string {
 	// Mask the API key for security (show asterisks)
 	maskedInput := strings.Repeat("*", len(m.apiKeyInput))
 
-	inputField := fmt.Sprintf("%s%s\n\n> %s█\n\n%s",
+	inputField := fmt.Sprintf("%s%s\n\n> %s█\n\n%s\n%s",
 		prompt,
 		help,
 		maskedInput,
-		styles.CaptionStyle.Render("(Press Enter to save, Esc to cancel)"))
+		styles.CaptionStyle.Render("Tip: You can paste with Ctrl+Shift+V or right-click"),
+		styles.CaptionStyle.Render("(Enter to save, Ctrl+U to clear, Esc to cancel)"))
 
 	return inputField
 }
