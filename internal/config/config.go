@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/joho/godotenv"
@@ -147,12 +148,19 @@ func ValidateConfig(config *Config) {
 	}
 }
 
-// LoadEnv loads environment variables from a .env file in the project root.
+// LoadEnv loads environment variables from a .env file.
+// It first tries the config directory, then the current directory.
 // It is safe to call even if the file does not exist.
 func LoadEnv() {
-	err := godotenv.Load()
+	// Try loading from config directory first
+	envPath := GetEnvPath()
+	err := godotenv.Load(envPath)
 	if err != nil {
-		// It's okay if the .env file doesn't exist, we'll just use env vars
+		// If not found in config dir, try current directory
+		err = godotenv.Load()
+		if err != nil {
+			// It's okay if the .env file doesn't exist, we'll just use env vars
+		}
 	}
 }
 
@@ -300,6 +308,79 @@ func WriteConfig(config Config) error {
 	encoder := toml.NewEncoder(file)
 	if err := encoder.Encode(config); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
+}
+
+// GetEnvPath determines the appropriate path for the .env file based on the config directory.
+func GetEnvPath() string {
+	configPath := GetConfigPath()
+	if configPath == "" {
+		return ".env"
+	}
+	configDir := filepath.Dir(configPath)
+	return filepath.Join(configDir, ".env")
+}
+
+// SaveAPIKey saves the API key to a .env file in the config directory.
+// This provides better security than storing it in the TOML config file.
+func SaveAPIKey(apiKey string) error {
+	envPath := GetEnvPath()
+
+	// Ensure the directory exists
+	configDir := filepath.Dir(envPath)
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(configDir, 0700); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+	}
+
+	// Read existing .env file if it exists
+	envVars := make(map[string]string)
+	if data, err := os.ReadFile(envPath); err == nil {
+		// Parse existing env file
+		lines := string(data)
+		for _, line := range strings.Split(lines, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				envVars[key] = value
+			}
+		}
+	}
+
+	// Update or add the API key
+	envVars["WEATHER_API_KEY"] = apiKey
+
+	// Write back to file with secure permissions (0600 = read/write for owner only)
+	file, err := os.OpenFile(envPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to open .env file: %w", err)
+	}
+	defer file.Close()
+
+	// Write header comment
+	_, err = file.WriteString("# WMS Environment Variables\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to .env file: %w", err)
+	}
+	_, err = file.WriteString("# This file contains sensitive API keys - do not commit to version control\n\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to .env file: %w", err)
+	}
+
+	// Write all environment variables
+	for key, value := range envVars {
+		_, err = file.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+		if err != nil {
+			return fmt.Errorf("failed to write to .env file: %w", err)
+		}
 	}
 
 	return nil

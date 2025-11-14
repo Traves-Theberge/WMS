@@ -26,6 +26,7 @@ const (
 	ViewSolar
 	ViewSettings      // A new view for the settings menu
 	ViewLocationInput // For text input, accessed from settings
+	ViewAPIKeyInput   // For API key input, accessed from settings
 )
 
 // Model represents the state of the entire application. It contains all the
@@ -61,6 +62,10 @@ type Model struct {
 	isEditingLocation bool
 	locationInput     string
 	settingsCursor    int // For navigating the settings menu
+
+	// API key input state
+	isEditingAPIKey bool
+	apiKeyInput     string
 }
 
 // InitialModel creates the initial model with default settings.
@@ -88,6 +93,8 @@ func InitialModelWithConfig(cfg config.Config) Model {
 		isEditingLocation: false,
 		locationInput:     cfg.Location,
 		settingsCursor:    0,
+		isEditingAPIKey:   false,
+		apiKeyInput:       cfg.WeatherAPIKey,
 	}
 }
 
@@ -139,6 +146,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// When editing location, only handle input-specific keys
 		if m.isEditingLocation {
 			return m.updateLocationInputView(msg)
+		}
+		// When editing API key, only handle input-specific keys
+		if m.isEditingAPIKey {
+			return m.updateAPIKeyInputView(msg)
 		}
 
 		// Global keybindings that work in any view
@@ -282,7 +293,11 @@ func (m Model) updateSettingsView(msg tea.KeyMsg) (Model, tea.Cmd) {
 				m.isEditingLocation = true
 				m.statusMsg = "Enter new location"
 			}
-		case 2: // Save and Exit
+		case 2: // Set API Key
+			m.viewMode = ViewAPIKeyInput
+			m.isEditingAPIKey = true
+			m.statusMsg = "Enter WeatherAPI key"
+		case 3: // Save and Exit
 			err := config.WriteConfig(m.config)
 			if err != nil {
 				m.statusMsg = "Error saving config"
@@ -296,9 +311,9 @@ func (m Model) updateSettingsView(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	// Handle cursor navigation
 	if msg.String() == "up" {
-		m.settingsCursor = (m.settingsCursor - 1 + 3) % 3 // Cycle through 3 options
+		m.settingsCursor = (m.settingsCursor - 1 + 4) % 4 // Cycle through 4 options
 	} else if msg.String() == "down" {
-		m.settingsCursor = (m.settingsCursor + 1) % 3 // Cycle through 3 options
+		m.settingsCursor = (m.settingsCursor + 1) % 4 // Cycle through 4 options
 	}
 
 	return m, nil
@@ -331,6 +346,43 @@ func (m Model) updateLocationInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
 		// Only handle printable characters for text input
 		if len(msg.String()) == 1 {
 			m.locationInput += msg.String()
+		}
+		return m, nil
+	}
+}
+
+// updateAPIKeyInputView handles keybindings for the API key input screen.
+func (m Model) updateAPIKeyInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Cancel editing and return to settings
+		m.isEditingAPIKey = false
+		m.viewMode = ViewSettings
+		m.statusMsg = "Cancelled"
+		m.statusTimer = time.Now()
+		return m, nil
+	case "enter":
+		// Save the new API key to .env file
+		m.config.WeatherAPIKey = m.apiKeyInput
+		err := config.SaveAPIKey(m.apiKeyInput)
+		m.isEditingAPIKey = false
+		m.viewMode = ViewSettings
+		if err != nil {
+			m.statusMsg = "Error saving API key"
+		} else {
+			m.statusMsg = "API key saved!"
+		}
+		m.statusTimer = time.Now()
+		return m, messages.FetchWeatherWithConfigCmd(m.config)
+	case "backspace":
+		if len(m.apiKeyInput) > 0 {
+			m.apiKeyInput = m.apiKeyInput[:len(m.apiKeyInput)-1]
+		}
+		return m, nil
+	default:
+		// Only handle printable characters for text input
+		if len(msg.String()) == 1 {
+			m.apiKeyInput += msg.String()
 		}
 		return m, nil
 	}
@@ -384,16 +436,34 @@ func (m Model) View() string {
 	case ViewLocationInput:
 		activeContent = m.renderLocationInput()
 		activeColor = styles.Primary
+	case ViewAPIKeyInput:
+		activeContent = m.renderAPIKeyInput()
+		activeColor = styles.Primary
 	}
 
-	// Define a unified card style with a fixed size based on the largest content
+	// Calculate available space for the card
+	availableWidth := m.width - 4  // Leave some margin
+	availableHeight := contentHeight - 4
+
+	// Determine card dimensions - use max content size but constrain to available space
+	cardWidth := maxContentWidth + 4
+	if cardWidth > availableWidth {
+		cardWidth = availableWidth
+	}
+
+	cardHeight := maxContentHeight + 2
+	if cardHeight > availableHeight {
+		cardHeight = availableHeight
+	}
+
+	// Define a responsive card style
 	cardStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(activeColor).
 		Padding(1, 2).
-		Width(maxContentWidth+4).
-		Height(maxContentHeight+2).
-		Align(lipgloss.Center, lipgloss.Center)
+		Width(cardWidth).
+		Height(cardHeight).
+		Align(lipgloss.Left, lipgloss.Top)
 
 	// Render the card with the active content
 	renderedCard := cardStyle.Render(activeContent)
@@ -601,15 +671,34 @@ func (m Model) renderSettings() string {
 	locationStatus := fmt.Sprintf("Set Location:  %s", m.config.Location)
 	b.WriteString(fmt.Sprintf("%s %s\n", cursor, locationStyle.Render(locationStatus)))
 
-	// --- Save and Exit Setting ---
+	// --- API Key Setting ---
 	cursor = " "
 	if m.settingsCursor == 2 {
+		cursor = ">"
+	}
+	apiKeyDisplay := "Not Set"
+	if m.config.WeatherAPIKey != "" {
+		// Show only last 4 characters for security
+		if len(m.config.WeatherAPIKey) > 4 {
+			apiKeyDisplay = "****" + m.config.WeatherAPIKey[len(m.config.WeatherAPIKey)-4:]
+		} else {
+			apiKeyDisplay = "****"
+		}
+	}
+	apiKeyStatus := fmt.Sprintf("Set API Key:   %s", apiKeyDisplay)
+	b.WriteString(fmt.Sprintf("%s %s\n", cursor, apiKeyStatus))
+
+	// --- Save and Exit Setting ---
+	cursor = " "
+	if m.settingsCursor == 3 {
 		cursor = ">"
 	}
 	saveStatus := "Save and Exit"
 	b.WriteString(fmt.Sprintf("%s %s\n", cursor, saveStatus))
 
 	b.WriteString("\n\n")
+	b.WriteString(styles.CaptionStyle.Render("Get your free API key at: https://www.weatherapi.com/signup.aspx"))
+	b.WriteString("\n")
 	b.WriteString(styles.CaptionStyle.Render("(Use ↑/↓ to navigate, Enter to select, Esc to cancel)"))
 
 	return b.String()
@@ -622,6 +711,23 @@ func (m Model) renderLocationInput() string {
 	inputField := fmt.Sprintf("%s\n\n> %s█", prompt, m.locationInput)
 
 	// Return the content, which will be wrapped in a card by the View function
+	return inputField
+}
+
+// renderAPIKeyInput creates the view for the API key input screen.
+func (m Model) renderAPIKeyInput() string {
+	prompt := "Enter your WeatherAPI key:"
+	help := "\nGet a free API key at:\nhttps://www.weatherapi.com/signup.aspx"
+
+	// Mask the API key for security (show asterisks)
+	maskedInput := strings.Repeat("*", len(m.apiKeyInput))
+
+	inputField := fmt.Sprintf("%s%s\n\n> %s█\n\n%s",
+		prompt,
+		help,
+		maskedInput,
+		styles.CaptionStyle.Render("(Press Enter to save, Esc to cancel)"))
+
 	return inputField
 }
 
