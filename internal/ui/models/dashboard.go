@@ -376,17 +376,22 @@ func (m Model) updateAPIKeyInputView(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.statusTimer = time.Now()
 		return m, nil
 	case "enter":
-		// Save the new API key to .env file
-		m.config.WeatherAPIKey = m.apiKeyInput
-		err := config.SaveAPIKey(m.apiKeyInput)
+		// Save the new API key to .env file and get back the cleaned version
+		cleanedKey, err := config.SaveAPIKey(m.apiKeyInput)
 		m.isEditingAPIKey = false
 		m.viewMode = ViewSettings
 		if err != nil {
-			m.statusMsg = "Error saving API key"
-		} else {
-			m.statusMsg = "API key saved!"
+			m.statusMsg = "Error saving API key: " + err.Error()
+			m.statusTimer = time.Now()
+			return m, nil
 		}
+
+		// Update the config with the cleaned key
+		m.config.WeatherAPIKey = cleanedKey
+		m.statusMsg = "API key saved! Testing connection..."
 		m.statusTimer = time.Now()
+
+		// Fetch weather to test the new API key
 		return m, messages.FetchWeatherWithConfigCmd(m.config)
 	case "backspace", "ctrl+h":
 		if len(m.apiKeyInput) > 0 {
@@ -485,10 +490,11 @@ func (m Model) View() string {
 	cardStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(activeColor).
-		Padding(1, 2).
+		Padding(2, 4).
 		Width(availableWidth).
 		Height(availableHeight).
-		Align(lipgloss.Center, lipgloss.Top)
+		AlignHorizontal(lipgloss.Center).
+		AlignVertical(lipgloss.Center)
 
 	// Render the card with the active content
 	renderedCard := cardStyle.Render(activeContent)

@@ -328,7 +328,8 @@ func GetEnvPath() string {
 
 // SaveAPIKey saves the API key to a .env file in the config directory.
 // This provides better security than storing it in the TOML config file.
-func SaveAPIKey(apiKey string) error {
+// Returns the cleaned API key.
+func SaveAPIKey(apiKey string) (string, error) {
 	// Clean the API key - remove quotes, brackets, and trim whitespace
 	apiKey = strings.TrimSpace(apiKey)
 	apiKey = strings.Trim(apiKey, "\"'[]")
@@ -339,7 +340,7 @@ func SaveAPIKey(apiKey string) error {
 	configDir := filepath.Dir(envPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(configDir, 0700); err != nil {
-			return fmt.Errorf("failed to create config directory: %w", err)
+			return "", fmt.Errorf("failed to create config directory: %w", err)
 		}
 	}
 
@@ -368,27 +369,27 @@ func SaveAPIKey(apiKey string) error {
 	// Write back to file with secure permissions (0600 = read/write for owner only)
 	file, err := os.OpenFile(envPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to open .env file: %w", err)
+		return "", fmt.Errorf("failed to open .env file: %w", err)
 	}
 	defer file.Close()
 
 	// Write header comment
 	_, err = file.WriteString("# WMS Environment Variables\n")
 	if err != nil {
-		return fmt.Errorf("failed to write to .env file: %w", err)
+		return "", fmt.Errorf("failed to write to .env file: %w", err)
 	}
 	_, err = file.WriteString("# This file contains sensitive API keys - do not commit to version control\n\n")
 	if err != nil {
-		return fmt.Errorf("failed to write to .env file: %w", err)
+		return "", fmt.Errorf("failed to write to .env file: %w", err)
 	}
 
 	// Write all environment variables
 	for key, value := range envVars {
 		_, err = file.WriteString(fmt.Sprintf("%s=%s\n", key, value))
 		if err != nil {
-			return fmt.Errorf("failed to write to .env file: %w", err)
+			return "", fmt.Errorf("failed to write to .env file: %w", err)
 		}
 	}
 
-	return nil
+	return apiKey, nil
 }
