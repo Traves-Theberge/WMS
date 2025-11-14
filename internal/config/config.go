@@ -217,8 +217,11 @@ func ReadConfig() Config {
 		return DefaultConfig()
 	}
 
-	// Load API keys from environment variables
+	// Load API keys from environment variables and clean them
 	config.WeatherAPIKey = os.Getenv("WEATHER_API_KEY")
+	// Remove quotes, brackets, and trim whitespace from API key
+	config.WeatherAPIKey = strings.TrimSpace(config.WeatherAPIKey)
+	config.WeatherAPIKey = strings.Trim(config.WeatherAPIKey, "\"'[]")
 
 	// Validate configuration
 	ValidateConfig(&config)
@@ -326,6 +329,10 @@ func GetEnvPath() string {
 // SaveAPIKey saves the API key to a .env file in the config directory.
 // This provides better security than storing it in the TOML config file.
 func SaveAPIKey(apiKey string) error {
+	// Clean the API key - remove quotes, brackets, and trim whitespace
+	apiKey = strings.TrimSpace(apiKey)
+	apiKey = strings.Trim(apiKey, "\"'[]")
+
 	envPath := GetEnvPath()
 
 	// Ensure the directory exists
