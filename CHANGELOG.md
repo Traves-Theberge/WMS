@@ -2,16 +2,9 @@
 
 All notable changes to WMS (Weather Management System) will be documented in this file.
 
-## [1.1.0] - 2025-10-17
+## [1.1.0] - 2025-11-13
 
 ### Added
-- **Omarchy Integration Support**
-  - Created `omarchy/` folder with all integration files
-  - Added `omarchy.toml` configuration file
-  - Added `wms-omarchy` launcher script
-  - Added `setup-omarchy.sh` automated setup script
-  - Added comprehensive `OMARCHY_SETUP.md` documentation
-
 - **Enhanced Navigation**
   - Added number key navigation (1, 2, 3) for direct tab switching
   - Added Shift+Tab support for reverse tab navigation
@@ -45,16 +38,13 @@ All notable changes to WMS (Weather Management System) will be documented in thi
 - **API Timeouts**: Reduced moon API timeout from 10s to 5s for better UX
 - **Build Process**: Enhanced build system with proper main entry point
 - **Error Handling**: Improved error messages and user feedback
-- **Code Organization**: Cleaned up project structure with dedicated Omarchy folder
+- **Code Organization**: Cleaned up project structure
 
 ### Technical Improvements
 - **Main Entry Point**: Created proper `cmd/wms/main.go` with configuration support
 - **Fallback Systems**: Implemented robust fallback mechanisms for external APIs
-- **Path Resolution**: Fixed absolute path handling for Omarchy integration
-- **Executable Management**: Optimized launcher to use compiled binary instead of `go run`
 
 ### Documentation
-- **Setup Guides**: Created comprehensive setup documentation for Omarchy
 - **Keyboard Shortcuts**: Updated all help text with current key bindings
 - **Configuration**: Documented all configuration options and modes
 - **Troubleshooting**: Added common issues and solutions
