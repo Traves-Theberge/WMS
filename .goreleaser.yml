@@ -1,0 +1,168 @@
+# GoReleaser configuration for WMS
+# https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules
+    - go mod tidy
+    # You may remove this if you don't need to generate anything before building
+    - go generate ./...
+
+builds:
+  - id: wms
+    main: ./cmd/wms
+    binary: wms
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    # Ignore specific combinations if needed
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+archives:
+  - id: wms-archive
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - .env.example
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^style:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance Improvements
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+# Optional: Homebrew tap (uncomment and configure if you want)
+# brews:
+#   - name: wms
+#     repository:
+#       owner: Traves-Theberge
+#       name: homebrew-tap
+#     commit_author:
+#       name: goreleaserbot
+#       email: bot@goreleaser.com
+#     folder: Formula
+#     homepage: https://github.com/Traves-Theberge/WMS
+#     description: "Weather, Moon, & Solar / Weather Management System"
+#     license: "MIT"
+#     install: |
+#       bin.install "wms"
+
+# Optional: AUR package for Arch Linux (uncomment if you want)
+# aurs:
+#   - name: wms-bin
+#     homepage: https://github.com/Traves-Theberge/WMS
+#     description: "Weather, Moon, & Solar / Weather Management System"
+#     maintainers:
+#       - 'Your Name <your.email@example.com>'
+#     license: "MIT"
+#     private_key: '{{ .Env.AUR_KEY }}'
+#     git_url: 'ssh://aur@aur.archlinux.org/wms-bin.git'
+#     package: |-
+#       # bin
+#       install -Dm755 "./wms" "${pkgdir}/usr/bin/wms"
+#
+#       # license
+#       install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/wms/LICENSE"
+#
+#       # completions
+#       mkdir -p "${pkgdir}/usr/share/bash-completion/completions/"
+#       mkdir -p "${pkgdir}/usr/share/zsh/site-functions/"
+#       mkdir -p "${pkgdir}/usr/share/fish/vendor_completions.d/"
+
+# GitHub release configuration
+release:
+  github:
+    owner: Traves-Theberge
+    name: WMS
+  draft: false
+  prerelease: auto
+  mode: append
+  name_template: "{{.ProjectName}} v{{.Version}}"
+  footer: |
+    ## Installation
+
+    Download the appropriate binary for your system from the assets below.
+
+    ### Linux/macOS
+    ```bash
+    # Extract the archive
+    tar -xzf wms_Linux_x86_64.tar.gz
+
+    # Move to your PATH
+    sudo mv wms /usr/local/bin/
+    ```
+
+    ### Windows
+    ```powershell
+    # Extract the zip file and add to your PATH
+    ```
+
+    ## Changelog
+    See the changes included in this release below.
+
+# Optional: Docker images (uncomment if you want to build Docker images)
+# dockers:
+#   - image_templates:
+#       - "ghcr.io/traves-theberge/wms:{{ .Version }}-amd64"
+#       - "ghcr.io/traves-theberge/wms:latest-amd64"
+#     use: buildx
+#     goos: linux
+#     goarch: amd64
+#     build_flag_templates:
+#       - "--platform=linux/amd64"
+#       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+#       - "--label=org.opencontainers.image.version={{ .Version }}"

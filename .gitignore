@@ -25,6 +25,11 @@ Thumbs.db
 # Project-specific
 WMS
 WMS.exe
+wms
+wms.exe
+
+# GoReleaser
+dist/
 
 #environment variables
 .env
